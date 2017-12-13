@@ -6,9 +6,14 @@
 
 using namespace std;
 
-map<string, string> class_map;
 void analize_line(string line);
-int method_counter = 0;
+void add_base_class(string line);
+void add_new_method(string line);
+
+string last_method;
+map<string, map<string, string>> class_map;
+regex base_class("^extends.*");
+regex method("^func.*");
 
 int main(int argc, char *args[])
 {
@@ -29,7 +34,10 @@ int main(int argc, char *args[])
         myfile.close();
         for (const auto &p : class_map)
         {
-            cout << "class_map['" << p.first << "'] = " << p.second << '\n';
+            for (const auto &o : p.second)
+            {
+                cout << "class_map['" << p.first << "']['" << o.first << "'] = " << o.second << "\n";
+            }
         }
     }
     else
@@ -38,17 +46,40 @@ int main(int argc, char *args[])
     return 0;
 }
 
-regex base_class("^extends.*");
-regex method("^func.*");
-
 void analize_line(string line)
 {
     if (regex_match(line, base_class))
     {
-        class_map.insert(pair<string, string>("base_class", line.substr(8)));
     }
     else if (regex_match(line, method))
     {
-        class_map.insert(pair<string, string>("m_" + to_string(++method_counter), line.substr(5)));
+        add_new_method(line);
     }
+}
+
+void add_base_class(string line)
+{
+    if (class_map.find("*base") == class_map.end())
+    {
+        map<string, string> base_map;
+        class_map.insert(pair<string, map<string, string>>("*base", base_map));
+    }
+    class_map["*base"].insert(pair<string, string>("class_name", line.substr(8)));
+}
+
+void add_new_method(string line)
+{
+    string method_line = line.substr(5);
+    int name_end = method_line.find("(");
+    string method_name = method_line.substr(0, name_end);
+    last_method = method_name;
+    if (class_map.find(method_name) == class_map.end())
+    {
+        map<string, string> method_map;
+        class_map.insert(pair<string, map<string, string>>(method_name, method_map));
+    }
+    class_map[method_name].insert(pair<string, string>("declaration", method_line));
+    int args_end = method_line.find(")");
+    string args = method_line.substr(name_end + 1, args_end - name_end - 1);
+    class_map[method_name].insert(pair<string, string>("args", args));
 }
